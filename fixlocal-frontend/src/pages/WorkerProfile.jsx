@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../api/axios";
 import { bookingService } from "../api/bookingService";
@@ -12,9 +12,13 @@ function WorkerProfile() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [city, setCity] = useState("");
+  const [address, setAddress] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [fetchingSuggestions, setFetchingSuggestions] = useState(false);
   const [coords, setCoords] = useState({ lat: "", lng: "" });
   const [geoStatus, setGeoStatus] = useState("");
+  const suggestionRef = useRef(null);
 
   useEffect(() => {
     async function fetchWorker() {
@@ -49,11 +53,76 @@ function WorkerProfile() {
     );
   }, []);
 
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (suggestionRef.current && !suggestionRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   const parseCoord = (value) => {
     if (value === "" || value === null || value === undefined) return null;
     const num = Number(value);
     return Number.isFinite(num) ? num : null;
   };
+
+  // load address suggestions when typing
+  useEffect(() => {
+    if (!address || address.trim().length < 3) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    let active = true;
+    const controller = new AbortController();
+    async function fetchSuggestions() {
+      try {
+        setFetchingSuggestions(true);
+        const query = new URLSearchParams({
+          q: address,
+          lang: "en",
+          limit: "8",
+        });
+        const resp = await fetch(
+          `https://photon.komoot.io/api/?${query.toString()}`,
+          {
+            signal: controller.signal,
+            headers: {
+              "User-Agent": "FixLocalApp/1.0 (contact@fixlocal.example)",
+              Accept: "application/json",
+            },
+          }
+        );
+        const payload = await resp.json();
+        if (active) {
+          const feats = Array.isArray(payload?.features) ? payload.features : [];
+          setSuggestions(feats);
+          setShowSuggestions(feats.length > 0);
+        }
+      } catch (fetchErr) {
+        if (active && fetchErr?.name !== "AbortError") {
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
+      } finally {
+        active && setFetchingSuggestions(false);
+      }
+    }
+
+    const debounceId = setTimeout(fetchSuggestions, 250);
+    return () => {
+      active = false;
+      clearTimeout(debounceId);
+      controller.abort();
+    };
+  }, [address]);
 
   const handleBook = async () => {
     if (!isAuthenticated) {
@@ -64,11 +133,38 @@ function WorkerProfile() {
       setError("Only customers can create bookings.");
       return;
     }
-    const lat = parseCoord(coords.lat);
-    const lng = parseCoord(coords.lng);
+    if (!address.trim()) {
+      setError("Please provide your address before booking.");
+      return;
+    }
 
-    if (lat === null || lng === null || !city.trim()) {
-      setError("Please provide your city and latitude/longitude before booking.");
+    let lat = parseCoord(coords.lat);
+    let lng = parseCoord(coords.lng);
+
+    if ((lat === null || lng === null) && address.trim().length >= 3) {
+      try {
+        const searchParams = new URLSearchParams({
+          q: address,
+          lang: "en",
+          limit: "1",
+        });
+        const resp = await fetch(`https://photon.komoot.io/api/?${searchParams.toString()}`);
+        const data = await resp.json();
+        const bestMatch = data?.features?.[0];
+        if (bestMatch?.geometry?.coordinates?.length === 2) {
+          lat = Number(bestMatch.geometry.coordinates[1]);
+          lng = Number(bestMatch.geometry.coordinates[0]);
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            setCoords({ lat: lat.toFixed(5), lng: lng.toFixed(5) });
+          }
+        }
+      } catch (geoErr) {
+        console.warn("Fallback geocode failed", geoErr);
+      }
+    }
+
+    if (lat === null || lng === null) {
+      setError("Please select a suggestion or capture your precise location before booking.");
       return;
     }
     try {
@@ -85,7 +181,7 @@ function WorkerProfile() {
         bookingStartTime: start.toISOString(),
         bookingEndTime: end.toISOString(),
         offerAmount: worker?.rate || worker?.baseRate || 1000,
-        userCity: city,
+        userCity: address,
         userLatitude: lat,
         userLongitude: lng,
       });
@@ -144,15 +240,66 @@ function WorkerProfile() {
             </div>
           </dl>
           <div className="mt-6 grid gap-4">
-            <div>
-              <label className="text-sm text-text-secondary">Your city</label>
+            <div className="relative" ref={suggestionRef}>
+              <label className="text-sm text-text-secondary">Your address</label>
               <input
                 type="text"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                placeholder="Enter your city"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                onFocus={() => setShowSuggestions(suggestions.length > 0)}
+                placeholder="Start typing your address"
                 className="mt-1 w-full border rounded-xl px-3 py-2 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                autoComplete="off"
               />
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute z-20 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg max-h-56 overflow-y-auto">
+                  {suggestions.map((item) => (
+                    <button
+                      key={item.properties?.osm_id || `${item.geometry?.coordinates?.join("-")}`}
+                      type="button"
+                      onClick={() => {
+                        const displayLabel =
+                          item.properties?.name ||
+                          item.properties?.street ||
+                          item.properties?.city ||
+                          address;
+                        const contextParts = [
+                          item.properties?.city,
+                          item.properties?.state,
+                          item.properties?.country,
+                        ].filter(Boolean);
+                        const fullAddress = [displayLabel, ...contextParts]
+                          .filter(Boolean)
+                          .join(", ");
+                        setAddress(fullAddress || address);
+                        if (item.geometry?.coordinates?.length === 2) {
+                          setCoords({
+                            lat: Number(item.geometry.coordinates[1]).toFixed(5),
+                            lng: Number(item.geometry.coordinates[0]).toFixed(5),
+                          });
+                        }
+                        setShowSuggestions(false);
+                      }}
+                      className="block w-full text-left px-3 py-2 text-sm hover:bg-slate-100"
+                    >
+                      <p className="font-semibold text-slate-800">
+                        {item.properties?.name || item.properties?.street ||
+                          "Unnamed place"}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {[item.properties?.city, item.properties?.state, item.properties?.country]
+                          .filter(Boolean)
+                          .join(", ")}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {fetchingSuggestions && (
+                <div className="absolute right-3 top-7 text-slate-400 text-xs">
+                  Searching…
+                </div>
+              )}
             </div>
             <div className="space-y-3">
               <div className="flex flex-col gap-2">

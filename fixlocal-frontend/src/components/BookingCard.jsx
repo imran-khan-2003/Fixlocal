@@ -54,7 +54,7 @@ function BookingCard({
   const contactDetails = [
     booking.userName && `Customer: ${booking.userName}`,
     booking.userPhone && `Phone: ${booking.userPhone}`,
-    booking.userCity && `City: ${booking.userCity}`,
+    booking.userCity && `Address: ${booking.userCity}`,
   ].filter(Boolean);
   const timeline = [
     { label: "Accepted", value: booking.acceptedAt },
