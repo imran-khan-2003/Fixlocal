@@ -5,7 +5,14 @@ function WorkerCard({ worker }) {
   const navigate = useNavigate();
 
   return (
-    <div className="p-5 bg-white border rounded-2xl shadow hover:shadow-xl transition">
+    <div className="relative p-5 bg-white border rounded-2xl shadow hover:shadow-xl transition">
+
+      <img
+        src="/tradesperson.png"
+        alt="Tradesperson badge"
+        className="absolute top-1 right-1 object-contain"
+        style={{ height: "150px", width: "150px" }}
+      />
 
       <h2 className="text-xl font-bold text-text-primary">
         {worker.name}

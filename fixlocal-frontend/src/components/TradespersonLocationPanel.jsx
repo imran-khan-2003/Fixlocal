@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, Marker, Polyline, TileLayer } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -17,6 +17,8 @@ const markerIcon = new L.Icon({
   iconAnchor: [12, 41],
 });
 
+const NAVIGATION_INTERVAL_MS = 10_000;
+
 function TradespersonLocationPanel({ booking }) {
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
@@ -24,6 +26,8 @@ function TradespersonLocationPanel({ booking }) {
   const [sending, setSending] = useState(false);
   const [routeStatus, setRouteStatus] = useState("");
   const [routeData, setRouteData] = useState(null);
+  const [autoSharing, setAutoSharing] = useState(false);
+  const navigationIntervalRef = useRef(null);
 
   const canSend = useMemo(() => Boolean(booking), [booking]);
   const tradespersonPosition =
@@ -44,6 +48,7 @@ function TradespersonLocationPanel({ booking }) {
     setLongitude("");
     setRouteData(null);
     setRouteStatus("");
+    setAutoSharing(false);
   }, [booking?.id]);
 
   const populateWithBrowserLocation = useCallback(() => {
@@ -63,9 +68,10 @@ function TradespersonLocationPanel({ booking }) {
     );
   }, []);
 
-  const shareLocation = useCallback(async () => {
+  const shareLocation = useCallback(async (coords) => {
     if (!booking) return;
-    if (!latitude || !longitude) {
+    const { lat, lng } = coords || { lat: latitude, lng: longitude };
+    if (!lat || !lng) {
       setStatus("Enter latitude and longitude before sending.");
       return;
     }
@@ -75,15 +81,15 @@ function TradespersonLocationPanel({ booking }) {
     try {
       await bookingService.updateLiveLocation(booking.id, {
         bookingId: booking.id,
-        latitude: Number(latitude),
-        longitude: Number(longitude),
+        latitude: Number(lat),
+        longitude: Number(lng),
       });
       setStatus("Live location shared successfully.");
       if (booking.userLatitude && booking.userLongitude) {
         try {
           const response = await fetch(
-            `https://router.project-osrm.org/route/v1/driving/${Number(longitude)},${Number(
-              latitude
+            `https://router.project-osrm.org/route/v1/driving/${Number(lng)},${Number(
+              lat
             )};${booking.userLongitude},${booking.userLatitude}?overview=full&geometries=geojson`
           );
           const data = await response.json();
@@ -107,6 +113,45 @@ function TradespersonLocationPanel({ booking }) {
       setSending(false);
     }
   }, [booking, latitude, longitude]);
+
+  useEffect(() => {
+    if (!autoSharing) {
+      if (navigationIntervalRef.current) {
+        clearInterval(navigationIntervalRef.current);
+        navigationIntervalRef.current = null;
+        setStatus("Stopped automatic sharing.");
+      }
+      return () => {};
+    }
+
+    if (!navigator.geolocation) {
+      setStatus("Geolocation not supported for auto sharing.");
+      setAutoSharing(false);
+      return () => {};
+    }
+
+    navigationIntervalRef.current = setInterval(() => {
+      navigator.geolocation?.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude.toFixed(5);
+          const lng = pos.coords.longitude.toFixed(5);
+          setLatitude(lat);
+          setLongitude(lng);
+          shareLocation({ lat, lng });
+        },
+        () => {
+          setStatus("Failed to refresh GPS for auto sharing.");
+        }
+      );
+    }, NAVIGATION_INTERVAL_MS);
+
+    return () => {
+      if (navigationIntervalRef.current) {
+        clearInterval(navigationIntervalRef.current);
+        navigationIntervalRef.current = null;
+      }
+    };
+  }, [autoSharing, shareLocation]);
 
   if (!booking) {
     return (
@@ -190,14 +235,28 @@ function TradespersonLocationPanel({ booking }) {
           </MapContainer>
         </div>
       )}
-      <button
-        type="button"
-        disabled={!canSend || sending}
-        onClick={shareLocation}
-        className="w-full bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
-      >
-        {sending ? "Sending…" : "Share location"}
-      </button>
+      <div className="flex flex-col gap-2">
+        <button
+          type="button"
+          disabled={!canSend || sending}
+          onClick={() => shareLocation()}
+          className="w-full bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+        >
+          {sending ? "Sending…" : "Share location"}
+        </button>
+        <button
+          type="button"
+          disabled={!canSend}
+          onClick={() => setAutoSharing((prev) => !prev)}
+          className={`w-full text-sm font-semibold px-4 py-2 rounded-lg border ${
+            autoSharing
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-slate-200 text-slate-700"
+          }`}
+        >
+          {autoSharing ? "Stop navigation sharing" : "Start navigation sharing"}
+        </button>
+      </div>
     </div>
   );
 }

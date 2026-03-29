@@ -5,12 +5,15 @@ import { dashboardService } from "../../api/dashboardService";
 import DashboardLayout from "../../components/DashboardLayout";
 import BookingCard from "../../components/BookingCard";
 import ConversationPanel from "../../components/ConversationPanel";
-import PaymentSummary from "../../components/PaymentSummary";
 import ChatThread from "../../components/ChatThread";
 import chatService from "../../api/chatService";
 import { useAuth } from "../../context/AuthContext";
 import LiveLocationMap from "../../components/LiveLocationMap";
 import { useLiveLocation } from "../../hooks/useLiveLocation";
+import disputeService from "../../api/disputeService";
+import PaymentSummary from "../../components/PaymentSummary";
+import { Link } from "react-router-dom";
+import MyDisputesPanel from "../../components/MyDisputesPanel";
 
 function BookingDetailModal({ booking, onClose }) {
   if (!booking) return null;
@@ -285,6 +288,25 @@ function UserDashboard() {
     stale: liveLocationStale,
   } = useLiveLocation(enRouteBooking?.id, { enabled: Boolean(enRouteBooking) });
 
+  const distanceToDestination = useMemo(() => {
+    if (!liveLocation || !enRouteBooking?.userLatitude || !enRouteBooking?.userLongitude) {
+      return null;
+    }
+
+    const toRadians = (deg) => (deg * Math.PI) / 180;
+    const R = 6371;
+    const dLat = toRadians(enRouteBooking.userLatitude - liveLocation.latitude);
+    const dLon = toRadians(enRouteBooking.userLongitude - liveLocation.longitude);
+    const lat1 = toRadians(liveLocation.latitude);
+    const lat2 = toRadians(enRouteBooking.userLatitude);
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }, [liveLocation, enRouteBooking?.userLatitude, enRouteBooking?.userLongitude]);
+
   const handleConversationSelect = useCallback(
     (conversation, { toggleOnly } = {}) => {
       if (!conversation) {
@@ -484,6 +506,14 @@ function UserDashboard() {
                 onRatingCancel={cancelInlineRating}
                 ratingSubmitting={inlineRatingSubmitting}
                 ratingError={inlineRatingErrors[booking.id]}
+                onDispute={async (payload) =>
+                  disputeService.create({
+                    bookingId: payload.bookingId,
+                    reason: payload.reason,
+                    desiredOutcome: payload.desiredOutcome,
+                    reporterId: user?.id,
+                  })
+                }
               />
             ))}
             {bookings.length === 0 && (
@@ -531,6 +561,11 @@ function UserDashboard() {
                     Tradesperson hasn’t shared their location yet. We’ll update this view automatically.
                   </p>
                 )}
+                {distanceToDestination !== null && !Number.isNaN(distanceToDestination) && (
+                  <p className="text-xs text-blue-600">
+                    ≈ {distanceToDestination.toFixed(2)} km away from your location
+                  </p>
+                )}
               </div>
             )}
             <PaymentSummary
@@ -540,6 +575,21 @@ function UserDashboard() {
               onCapture={(booking) => handlePaymentAction(booking, "capture")}
               onRefund={(booking) => handlePaymentAction(booking, "refund")}
             />
+            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-xs uppercase text-slate-500">My disputes</p>
+                  <p className="text-lg font-semibold text-slate-900">Track status</p>
+                </div>
+                <Link
+                  to="/dashboard/disputes/mine"
+                  className="text-sm text-primary font-semibold"
+                >
+                  View all
+                </Link>
+              </div>
+              <MyDisputesPanel limit={2} />
+            </div>
             {chatVisible && (
               <>
                 <ConversationPanel

@@ -1,65 +1,306 @@
 
-import { useEffect, useState } from 'react';
-import { getAllDisputes, updateDispute } from '../../api/adminService'; // Assuming you'll create this function
+import { useEffect, useMemo, useState } from "react";
+import { adminService } from "../../api/adminService";
+import DashboardLayout from "../../components/DashboardLayout";
 
-function Disputes() {
-  const [disputes, setDisputes] = useState([]);
+const statusOptions = [
+  { value: "OPEN", label: "Open", tone: "bg-blue-100 text-blue-700" },
+  { value: "UNDER_REVIEW", label: "Under Review", tone: "bg-amber-100 text-amber-700" },
+  { value: "RESOLVED", label: "Resolved", tone: "bg-emerald-100 text-emerald-700" },
+  { value: "CLOSED", label: "Closed", tone: "bg-slate-200 text-slate-800" },
+];
 
+function StatusBadge({ value }) {
+  const option = statusOptions.find((opt) => opt.value === value);
+  if (!option) return null;
+  return (
+    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${option.tone}`}>
+      {option.label}
+    </span>
+  );
+}
+
+function DisputeDetailDrawer({ dispute, onClose, onStatusChange, onAddNote, saving }) {
+  const [note, setNote] = useState("");
   useEffect(() => {
-    getAllDisputes().then(setDisputes).catch(console.error);
-  }, []);
+    setNote("");
+  }, [dispute?.id]);
 
-  const handleUpdateStatus = (id, status) => {
-    updateDispute(id, { status })
-      .then(updatedDispute => {
-        setDisputes(disputes.map(d => d.id === id ? updatedDispute : d));
-      })
-      .catch(console.error);
+  if (!dispute) return null;
+  const disabled = saving;
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    const trimmed = note.trim();
+    if (!trimmed) return;
+    onAddNote(trimmed).then(() => setNote(""));
   };
 
   return (
-    <div className="container mx-auto px-4 sm:px-8">
-      <div className="py-8">
-        <div>
-          <h2 className="text-2xl font-semibold leading-tight">Disputes</h2>
-        </div>
-        <div className="-mx-4 sm:-mx-8 px-4 sm:px-8 py-4 overflow-x-auto">
-          <div className="inline-block min-w-full shadow rounded-lg overflow-hidden">
-            <table className="min-w-full leading-normal">
-              <thead>
-                <tr>
-                  <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Booking ID</th>
-                  <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Reason</th>
-                  <th classNamepx-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                  <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {disputes.map(dispute => (
-                  <tr key={dispute.id}>
-                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">{dispute.bookingId}</td>
-                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">{dispute.reason}</td>
-                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">{dispute.status}</td>
-                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm text-right">
-                      <select 
-                        value={dispute.status}
-                        onChange={(e) => handleUpdateStatus(dispute.id, e.target.value)} 
-                        className="py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                      >
-                        <option value="OPEN">Open</option>
-                        <option value="UNDER_REVIEW">Under Review</option>
-                        <option value="RESOLVED">Resolved</option>
-                        <option value="CLOSED">Closed</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+    <div className="fixed inset-0 bg-slate-900/40 flex justify-end z-40">
+      <div className="w-full max-w-xl bg-white h-full overflow-y-auto shadow-2xl">
+        <div className="p-6 border-b border-slate-100 flex justify-between items-start">
+          <div>
+            <p className="text-xs uppercase text-slate-500">Dispute</p>
+            <h2 className="text-2xl font-semibold">Booking #{dispute.bookingId}</h2>
+            <p className="text-sm text-slate-500 mt-1">Opened {new Date(dispute.createdAt).toLocaleString()}</p>
           </div>
+          <button className="text-slate-500 hover:text-slate-800" onClick={onClose}>
+            Close
+          </button>
+        </div>
+        <div className="p-6 space-y-6">
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-700">Status</h3>
+              <div className="flex items-center gap-3">
+                <StatusBadge value={dispute.status} />
+                <select
+                  className="border border-slate-200 rounded-lg px-3 py-1 text-sm"
+                  value={dispute.status}
+                  onChange={(e) => onStatusChange(e.target.value)}
+                  disabled={saving}
+                >
+                  {statusOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="bg-slate-50 rounded-2xl p-4">
+              <p className="text-xs text-slate-500 uppercase">Reason</p>
+              <p className="text-slate-800 text-sm mt-1 whitespace-pre-wrap">{dispute.reason}</p>
+            </div>
+            <div className="bg-slate-50 rounded-2xl p-4">
+              <p className="text-xs text-slate-500 uppercase">Desired outcome</p>
+              <p className="text-slate-800 text-sm mt-1 whitespace-pre-wrap">{dispute.desiredOutcome}</p>
+            </div>
+          </section>
+
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="border border-slate-100 rounded-2xl p-4">
+              <p className="text-xs text-slate-500 uppercase">Reporter</p>
+              <h4 className="text-lg font-semibold text-slate-900">{dispute.reporter?.name || "Unknown"}</h4>
+              <p className="text-sm text-slate-600">{dispute.reporter?.email}</p>
+              {dispute.reporter?.phone && (
+                <p className="text-sm text-slate-600 mt-1">{dispute.reporter.phone}</p>
+              )}
+              <span className="inline-flex mt-3 px-2 py-1 text-xs rounded-full bg-slate-100 text-slate-700">
+                {dispute.reporter?.role}
+              </span>
+            </div>
+            <div className="border border-slate-100 rounded-2xl p-4">
+              <p className="text-xs text-slate-500 uppercase">Respondent</p>
+              <h4 className="text-lg font-semibold text-slate-900">{dispute.respondent?.name || "Unknown"}</h4>
+              <p className="text-sm text-slate-600">{dispute.respondent?.email}</p>
+              {dispute.respondent?.phone && (
+                <p className="text-sm text-slate-600 mt-1">{dispute.respondent.phone}</p>
+              )}
+              <span className="inline-flex mt-3 px-2 py-1 text-xs rounded-full bg-slate-100 text-slate-700">
+                {dispute.respondent?.role}
+              </span>
+            </div>
+          </section>
+
+          <section className="border border-slate-100 rounded-2xl p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-slate-500 uppercase">Booking summary</p>
+                <h4 className="text-lg font-semibold text-slate-900">{dispute.booking?.serviceDescription || "Service details"}</h4>
+              </div>
+              {dispute.booking?.price && (
+                <p className="text-sm font-semibold text-slate-800">₹ {dispute.booking.price}</p>
+              )}
+            </div>
+            <p className="text-sm text-slate-600">{dispute.booking?.serviceAddress}</p>
+            <div className="grid grid-cols-2 gap-3 text-sm text-slate-500">
+              <div>
+                <p className="text-xs uppercase">Customer</p>
+                <p className="text-slate-800">{dispute.booking?.userName || "-"}</p>
+                <p>{dispute.booking?.userPhone || ""}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase">Tradesperson</p>
+                <p className="text-slate-800">{dispute.booking?.tradespersonName || "-"}</p>
+                <p>{dispute.booking?.tradespersonPhone || ""}</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="border border-slate-100 rounded-2xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-slate-700">Message history</h3>
+              {dispute.messages.length > 0 && (
+                <p className="text-xs text-slate-500">{dispute.messages.length} entries</p>
+              )}
+            </div>
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {dispute.messages.length === 0 && (
+                <p className="text-xs text-slate-500">No notes yet.</p>
+              )}
+              {dispute.messages.map((message, index) => (
+                <div key={`${message.senderId}-${index}`} className="bg-slate-50 rounded-xl p-3">
+                  <p className="text-sm text-slate-900">{message.message}</p>
+                  <div className="mt-2 text-[11px] uppercase text-slate-500 flex justify-between">
+                    <span>{message.senderName || message.senderRole || "Collaborator"}</span>
+                    <span>{new Date(message.timestamp).toLocaleString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <form className="mt-4 space-y-2" onSubmit={handleSubmit}>
+              <textarea
+                className="w-full border border-slate-200 rounded-lg p-3 text-sm"
+                placeholder="Add admin note"
+                rows={3}
+                value={note}
+                disabled={disabled}
+                onChange={(e) => setNote(e.target.value)}
+              />
+              <button
+                type="submit"
+                className="px-4 py-2 bg-slate-900 text-white rounded-md text-sm disabled:opacity-50"
+                disabled={disabled || !note.trim()}
+              >
+                {saving ? "Saving..." : "Add note"}
+              </button>
+            </form>
+          </section>
         </div>
       </div>
     </div>
+  );
+}
+
+function Disputes() {
+  const [disputes, setDisputes] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [selectedId, setSelectedId] = useState(null);
+  const selectedDispute = useMemo(() => disputes.find((d) => d.id === selectedId) || null, [disputes, selectedId]);
+
+  const loadDisputes = () => {
+    setLoading(true);
+    setError("");
+    adminService
+      .getDisputes()
+      .then((res) => setDisputes(res.data || []))
+      .catch(() => setError("Failed to load disputes"))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadDisputes();
+  }, []);
+
+  const refreshDispute = (id) => {
+    adminService
+      .getDisputeById(id)
+      .then(({ data }) => {
+        setDisputes((prev) => prev.map((d) => (d.id === id ? data : d)));
+      })
+      .catch(() => {});
+  };
+
+  const handleUpdateStatus = (id, status) => {
+    setSaving(true);
+    adminService
+      .updateDispute(id, { status })
+      .then(() => {
+        refreshDispute(id);
+      })
+      .catch(() => setError("Failed to update dispute"))
+      .finally(() => setSaving(false));
+  };
+
+  const handleAddNote = (id, message) => {
+    setSaving(true);
+    return adminService
+      .addDisputeNote(id, { message })
+      .then(() => {
+        refreshDispute(id);
+      })
+      .catch(() => setError("Failed to add note"))
+      .finally(() => setSaving(false));
+  };
+
+  return (
+    <DashboardLayout title="Disputes" subtitle="Manage platform conflicts">
+      {error && <p className="text-red-500 mb-4">{error}</p>}
+      {loading ? (
+        <p className="text-slate-600">Loading disputes...</p>
+      ) : (
+        <div className="overflow-x-auto bg-white rounded-2xl shadow border border-slate-100">
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Booking ID
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Reporter
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Reason
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-slate-100">
+              {disputes.map((dispute) => (
+                <tr key={dispute.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-3 text-sm text-slate-700">
+                    <button className="text-left text-blue-600" onClick={() => setSelectedId(dispute.id)}>
+                      {dispute.bookingId}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-slate-600">{dispute.reporter?.name || "-"}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600 max-w-md truncate">
+                    {dispute.reason}
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    <StatusBadge value={dispute.status} />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <select
+                      value={dispute.status}
+                      onChange={(e) => handleUpdateStatus(dispute.id, e.target.value)}
+                      className="py-2 px-3 border border-slate-200 rounded-md text-sm"
+                    >
+                      {statusOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+              {disputes.length === 0 && (
+                <tr>
+                  <td colSpan="5" className="px-4 py-6 text-center text-slate-500 text-sm">
+                    No disputes yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <DisputeDetailDrawer
+        dispute={selectedDispute}
+        saving={saving}
+        onClose={() => setSelectedId(null)}
+        onStatusChange={(status) => selectedDispute && handleUpdateStatus(selectedDispute.id, status)}
+        onAddNote={(message) => selectedDispute && handleAddNote(selectedDispute.id, message)}
+      />
+    </DashboardLayout>
   );
 }
 

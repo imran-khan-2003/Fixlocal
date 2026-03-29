@@ -40,7 +40,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/auth/**",
                                 "/api/v1/auth/**",
-                                "/api/v1/tradespersons/**" // ✅ allow search API
+                                "/api/v1/tradespersons/**",
+                                "/api/v1/testimonials/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

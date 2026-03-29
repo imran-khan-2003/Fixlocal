@@ -6,19 +6,27 @@ import Login from "../pages/Login";
 import Register from "../pages/Register";
 import SearchResults from "../pages/SearchResults";
 import WorkerProfile from "../pages/WorkerProfile";
+import Terms from "../pages/Terms";
+import Privacy from "../pages/Privacy";
 import UserDashboard from "../pages/dashboard/UserDashboard";
 import TradespersonDashboard from "../pages/dashboard/TradespersonDashboard";
 import TradespersonRatings from "../pages/dashboard/TradespersonRatings";
+import TradespersonDisputes from "../pages/dashboard/TradespersonDisputes";
 import AdminDashboard from "../pages/dashboard/AdminDashboard";
 import Disputes from "../pages/dashboard/Disputes";
+import MyDisputes from "../pages/dashboard/MyDisputes";
 import Profile from "../pages/Profile";
 import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
+import Footer from "../components/Footer";
 
 function AppRoutes() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { isAuthenticated, user } = useAuth();
+
+  const toggleSidebar = () => setSidebarOpen((prev) => !prev);
+  const closeSidebar = () => setSidebarOpen(false);
 
   const ProtectedRoute = ({ allowedRoles, element }) => {
     if (!isAuthenticated) return <Navigate to="/login" replace />;
@@ -28,14 +36,21 @@ function AppRoutes() {
     return element;
   };
 
-  const PublicLayout = () => (
+  const Shell = ({ children }) => (
     <div className="min-h-screen bg-slate-50">
-      <Navbar onToggleSidebar={() => setSidebarOpen((prev) => !prev)} />
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="pt-4 px-4">
-        <Outlet />
+      <Navbar onToggleSidebar={toggleSidebar} />
+      <Sidebar open={sidebarOpen} onClose={closeSidebar} />
+      <div className="pt-4 px-4 pb-10">
+        {children}
       </div>
+      <Footer />
     </div>
+  );
+
+  const PublicLayout = () => (
+    <Shell>
+      <Outlet />
+    </Shell>
   );
 
   return (
@@ -47,14 +62,40 @@ function AppRoutes() {
           <Route path="/register" element={<Register />} />
           <Route path="/search" element={<SearchResults />} />
           <Route path="/worker/:id" element={<WorkerProfile />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
         </Route>
-        <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} />
+        <Route
+          path="/profile"
+          element={
+            <Shell>
+              <ProtectedRoute element={<Profile />} />
+            </Shell>
+          }
+        />
         <Route
           path="/dashboard"
           element={
             <ProtectedRoute
               allowedRoles={["USER"]}
-              element={<UserDashboard />}
+              element={
+                <Shell>
+                  <UserDashboard />
+                </Shell>
+              }
+            />
+          }
+        />
+        <Route
+          path="/dashboard/disputes/mine"
+          element={
+            <ProtectedRoute
+              allowedRoles={["USER"]}
+              element={
+                <Shell>
+                  <MyDisputes />
+                </Shell>
+              }
             />
           }
         />
@@ -63,7 +104,11 @@ function AppRoutes() {
           element={
             <ProtectedRoute
               allowedRoles={["TRADESPERSON"]}
-              element={<TradespersonDashboard />}
+              element={
+                <Shell>
+                  <TradespersonDashboard />
+                </Shell>
+              }
             />
           }
         />
@@ -72,7 +117,24 @@ function AppRoutes() {
           element={
             <ProtectedRoute
               allowedRoles={["TRADESPERSON"]}
-              element={<TradespersonRatings />}
+              element={
+                <Shell>
+                  <TradespersonRatings />
+                </Shell>
+              }
+            />
+          }
+        />
+        <Route
+          path="/dashboard/tradesperson/disputes"
+          element={
+            <ProtectedRoute
+              allowedRoles={["TRADESPERSON"]}
+              element={
+                <Shell>
+                  <TradespersonDisputes />
+                </Shell>
+              }
             />
           }
         />
@@ -81,7 +143,11 @@ function AppRoutes() {
           element={
             <ProtectedRoute
               allowedRoles={["ADMIN"]}
-              element={<AdminDashboard />}
+              element={
+                <Shell>
+                  <AdminDashboard />
+                </Shell>
+              }
             />
           }
         />
@@ -90,11 +156,22 @@ function AppRoutes() {
           element={
             <ProtectedRoute
               allowedRoles={["ADMIN"]}
-              element={<Disputes />}
+              element={
+                <Shell>
+                  <Disputes />
+                </Shell>
+              }
             />
           }
         />
-
+        <Route
+          path="*"
+          element={
+            <Shell>
+              <Navigate to="/" replace />
+            </Shell>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );

@@ -13,7 +13,7 @@ function WorkerProfile() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [city, setCity] = useState("");
-  const [coords, setCoords] = useState({ lat: null, lng: null });
+  const [coords, setCoords] = useState({ lat: "", lng: "" });
   const [geoStatus, setGeoStatus] = useState("");
 
   useEffect(() => {
@@ -38,8 +38,8 @@ function WorkerProfile() {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setCoords({
-          lat: Number(position.coords.latitude.toFixed(5)),
-          lng: Number(position.coords.longitude.toFixed(5)),
+          lat: position.coords.latitude.toFixed(5),
+          lng: position.coords.longitude.toFixed(5),
         });
         setGeoStatus("Location captured. You can now book.");
       },
@@ -48,6 +48,12 @@ function WorkerProfile() {
       }
     );
   }, []);
+
+  const parseCoord = (value) => {
+    if (value === "" || value === null || value === undefined) return null;
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  };
 
   const handleBook = async () => {
     if (!isAuthenticated) {
@@ -58,8 +64,11 @@ function WorkerProfile() {
       setError("Only customers can create bookings.");
       return;
     }
-    if (!coords.lat || !coords.lng || !city) {
-      setError("Please capture your location and city before booking.");
+    const lat = parseCoord(coords.lat);
+    const lng = parseCoord(coords.lng);
+
+    if (lat === null || lng === null || !city.trim()) {
+      setError("Please provide your city and latitude/longitude before booking.");
       return;
     }
     try {
@@ -77,8 +86,8 @@ function WorkerProfile() {
         bookingEndTime: end.toISOString(),
         offerAmount: worker?.rate || worker?.baseRate || 1000,
         userCity: city,
-        userLatitude: coords.lat,
-        userLongitude: coords.lng,
+        userLatitude: lat,
+        userLongitude: lng,
       });
       setSuccess("Booking request sent! You can track it from your dashboard.");
     } catch (err) {
@@ -94,7 +103,13 @@ function WorkerProfile() {
   return (
     <div className="py-12">
       <div className="max-w-4xl mx-auto px-6">
-        <div className="bg-white rounded-3xl shadow p-8 border border-gray-200">
+        <div className="bg-white rounded-3xl shadow p-8 border border-gray-200 relative">
+          <img
+            src="/tradesperson.png"
+            alt="Tradesperson badge"
+            className="absolute top-1 right-1 object-contain"
+            style={{ height: "150px", width: "150px" }}
+          />
           <div className="flex flex-col gap-2">
             <p className="text-sm uppercase text-text-secondary">Tradesperson</p>
             <h1 className="text-4xl font-bold text-text-primary">{worker.name}</h1>
@@ -139,20 +154,45 @@ function WorkerProfile() {
                 className="mt-1 w-full border rounded-xl px-3 py-2 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
-            <div className="flex flex-col gap-2">
-              <button
-                type="button"
-                className="border rounded-xl px-4 py-2 text-sm text-text-secondary transition hover:bg-gray-100"
-                onClick={captureLocation}
-              >
-                {coords.lat ? "Refresh my location" : "Capture my location"}
-              </button>
-              {geoStatus && <p className="text-xs text-text-secondary">{geoStatus}</p>}
-              {coords.lat && (
-                <p className="text-xs text-text-secondary">
-                  Lat: {coords.lat}, Lng: {coords.lng}
-                </p>
-              )}
+            <div className="space-y-3">
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  className="border rounded-xl px-4 py-2 text-sm text-text-secondary transition hover:bg-gray-100"
+                  onClick={captureLocation}
+                >
+                  {coords.lat ? "Refresh my location" : "Capture my location"}
+                </button>
+                {geoStatus && <p className="text-xs text-text-secondary">{geoStatus}</p>}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-text-secondary">Latitude</label>
+                  <input
+                    type="number"
+                    step="0.00001"
+                    value={coords.lat}
+                    onChange={(e) =>
+                      setCoords((prev) => ({ ...prev, lat: e.target.value }))
+                    }
+                    placeholder="e.g. 12.97160"
+                    className="mt-1 w-full border rounded-xl px-3 py-2 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-text-secondary">Longitude</label>
+                  <input
+                    type="number"
+                    step="0.00001"
+                    value={coords.lng}
+                    onChange={(e) =>
+                      setCoords((prev) => ({ ...prev, lng: e.target.value }))
+                    }
+                    placeholder="e.g. 77.59460"
+                    className="mt-1 w-full border rounded-xl px-3 py-2 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              </div>
             </div>
           </div>
           {error && <p className="mt-4 text-sm text-red-500">{error}</p>}

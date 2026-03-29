@@ -8,6 +8,8 @@ import { bookingService } from "../../api/bookingService";
 import chatService from "../../api/chatService";
 import { dashboardService } from "../../api/dashboardService";
 import TradespersonLocationPanel from "../../components/TradespersonLocationPanel";
+import disputeService from "../../api/disputeService";
+import MyDisputesPanel from "../../components/MyDisputesPanel";
 
 const ACTION_CONFIG = {
   PENDING: {
@@ -274,6 +276,13 @@ function TradespersonDashboard() {
                   }
                   secondaryLabel={actionConfig.secondaryLabel}
                   showCustomerDetails
+                  onDispute={async (payload) =>
+                    disputeService.create({
+                      bookingId: payload.bookingId,
+                      reason: payload.reason,
+                      desiredOutcome: payload.desiredOutcome,
+                    })
+                  }
                 />
               );
             })}
@@ -283,6 +292,21 @@ function TradespersonDashboard() {
           </div>
           <div className="space-y-4">
             <TradespersonLocationPanel booking={enRouteBooking} />
+            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-xs uppercase text-slate-500">My disputes</p>
+                  <p className="text-lg font-semibold text-slate-900">Track status</p>
+                </div>
+                <Link
+                  to="/dashboard/tradesperson/disputes"
+                  className="text-sm text-primary font-semibold"
+                >
+                  View all
+                </Link>
+              </div>
+              <MyDisputesPanel title="My Disputes" limit={2} />
+            </div>
             {chatVisible && (
               <>
                 <ConversationPanel

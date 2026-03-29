@@ -26,7 +26,7 @@ public class AdminController {
         return ResponseEntity.ok(adminService.getAllUsers(pageable));
     }
 
-    @GetMapping("/tradespersons")
+    @GetMapping({"/tradespersons", "/trades"})
     public ResponseEntity<Page<User>> getTradespersons(Pageable pageable) {
         return ResponseEntity.ok(adminService.getAllTradespersons(pageable));
     }

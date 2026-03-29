@@ -1,9 +1,9 @@
 
-import { useState } from 'react';
+import { useState } from "react";
 
-function DisputeForm({ bookingId, onSubmit, onCancel }) {
-  const [reason, setReason] = useState('');
-  const [desiredOutcome, setDesiredOutcome] = useState('');
+function DisputeForm({ bookingId, onSubmit, onCancel, submitting = false }) {
+  const [reason, setReason] = useState("");
+  const [desiredOutcome, setDesiredOutcome] = useState("");
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -38,8 +38,21 @@ function DisputeForm({ bookingId, onSubmit, onCancel }) {
             />
           </div>
           <div className="flex justify-end gap-4">
-            <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
-            <button type="submit" className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Submit Dispute</button>
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-60"
+              disabled={submitting}
+            >
+              {submitting ? "Submitting..." : "Submit Dispute"}
+            </button>
           </div>
         </form>
       </div>

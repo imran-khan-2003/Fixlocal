@@ -8,8 +8,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.Aggregation;
 import java.util.Optional;
-
-import java.util.Optional;
 import java.util.List;
 
 public interface UserRepository extends MongoRepository<User, String> {

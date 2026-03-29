@@ -4,10 +4,10 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  background-color: theme('colors.secondary');
-  color: theme('colors.text-primary');
-  font-family: theme('fontFamily.sans');
+@layer base {
+  body {
+    @apply bg-secondary text-text-primary font-sans;
+  }
 }
 
 .navbar-logo {

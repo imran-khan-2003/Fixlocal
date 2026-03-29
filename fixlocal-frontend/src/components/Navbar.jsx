@@ -33,26 +33,6 @@ function Navbar({ onToggleSidebar }) {
               <span className="text-white">
                 Signed in as <strong>{user?.name || "User"}</strong>
               </span>
-              {user?.role === "TRADESPERSON" && (
-                <Link to="/dashboard/tradesperson" className="hover:text-white">
-                  Tradesperson Console
-                </Link>
-              )}
-              {user?.role === "TRADESPERSON" && (
-                <Link to="/dashboard/tradesperson/ratings" className="hover:text-white">
-                  My Ratings
-                </Link>
-              )}
-              {user?.role === "ADMIN" && (
-                <Link to="/dashboard/admin" className="hover:text-white">
-                  Admin
-                </Link>
-              )}
-              {user?.role === "USER" && (
-                <Link to="/dashboard" className="hover:text-white">
-                  Dashboard
-                </Link>
-              )}
               <Link to="/profile" className="hover:text-white">
                 My Profile
               </Link>

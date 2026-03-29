@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import DisputeForm from './DisputeForm';
+import DisputeForm from "./DisputeForm";
 
 function BookingCard({
   booking,
@@ -21,15 +21,33 @@ function BookingCard({
   ratingSubmitting,
   ratingError,
   showCustomerDetails = false,
-  onDispute, 
+  onDispute,
 }) {
   const [showDisputeForm, setShowDisputeForm] = useState(false);
+  const [disputeLoading, setDisputeLoading] = useState(false);
+  const [disputeError, setDisputeError] = useState("");
+  const [disputeSuccess, setDisputeSuccess] = useState("");
 
-  const handleDisputeSubmit = (disputeData) => {
-    if (onDispute) {
-      onDispute(disputeData);
+  const handleDisputeSubmit = async (disputeData) => {
+    if (!onDispute) {
+      setShowDisputeForm(false);
+      return;
     }
-    setShowDisputeForm(false);
+
+    setDisputeLoading(true);
+    setDisputeError("");
+    setDisputeSuccess("");
+    try {
+      await onDispute(disputeData);
+      setDisputeSuccess("Dispute submitted successfully.");
+      setShowDisputeForm(false);
+    } catch (err) {
+      setDisputeError(
+        err?.response?.data?.message || "Failed to submit dispute. Please try again."
+      );
+    } finally {
+      setDisputeLoading(false);
+    }
   };
 
   const price = booking.price ?? booking.initialOfferAmount;
@@ -161,6 +179,12 @@ function BookingCard({
         )}
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
+        {disputeSuccess && (
+          <p className="text-xs text-emerald-600">{disputeSuccess}</p>
+        )}
+        {disputeError && (
+          <p className="text-xs text-red-500">{disputeError}</p>
+        )}
         {onView && (
           <button className="text-blue-600 text-sm" onClick={() => onView(booking)}>
             View Details
@@ -171,7 +195,12 @@ function BookingCard({
             Chat
           </button>
         )}
-        <button onClick={() => setShowDisputeForm(true)} className="text-red-600 text-sm">Report an Issue</button>
+        <button
+          onClick={() => setShowDisputeForm(true)}
+          className="text-red-600 text-sm"
+        >
+          Report an Issue
+        </button>
         {onSecondaryAction && secondaryLabel && (
           <button
             className="border border-slate-200 text-sm px-3 py-1 rounded"
@@ -201,6 +230,7 @@ function BookingCard({
       {showDisputeForm && (
         <DisputeForm
           bookingId={booking.id}
+          submitting={disputeLoading}
           onSubmit={handleDisputeSubmit}
           onCancel={() => setShowDisputeForm(false)}
         />

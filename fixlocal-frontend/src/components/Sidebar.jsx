@@ -18,6 +18,14 @@ function Sidebar({ open, onClose }) {
             to: "/dashboard/tradesperson/ratings",
             label: "My Ratings",
           },
+          user?.role === "TRADESPERSON" && {
+            to: "/dashboard/tradesperson/disputes",
+            label: "My Disputes",
+          },
+          user?.role === "USER" && {
+            to: "/dashboard/disputes/mine",
+            label: "My Disputes",
+          },
           user?.role === "ADMIN" && { to: "/dashboard/admin", label: "Admin" },
           user?.role === "ADMIN" && { to: "/dashboard/disputes", label: "Disputes" },
           { to: "/profile", label: "Profile" },
