@@ -1,9 +1,11 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import DashboardLayout from "../../components/DashboardLayout";
 import LiveLocationMap from "../../components/LiveLocationMap";
 import PaymentSummary from "../../components/PaymentSummary";
 import BookingCard from "../../components/BookingCard";
+import ChatThread from "../../components/ChatThread";
 import { bookingService } from "../../api/bookingService";
+import disputeService from "../../api/disputeService";
 import { useCurrentBooking } from "../../hooks/useCurrentBooking";
 
 function CurrentBooking() {
@@ -16,8 +18,13 @@ function CurrentBooking() {
     activeBooking,
     enRouteBooking,
     liveLocationState,
+    chatConversation,
+    chatMessages,
+    chatLoading,
+    chatError,
+    sendMessage,
   } = useCurrentBooking();
-  const [selectedBookingId, setSelectedBookingId] = useState(null);
+  const [chatVisible, setChatVisible] = useState(false);
 
   const handleCancel = async (booking, reason) => {
     await bookingService.cancel(booking.id, reason);
@@ -37,13 +44,31 @@ function CurrentBooking() {
           <div className="space-y-4">
             <BookingCard
               booking={activeBooking}
+              onChat={() => setChatVisible((prev) => !prev)}
+              onDispute={async (payload) =>
+                disputeService.create({
+                  bookingId: payload.bookingId,
+                  reason: payload.reason,
+                  desiredOutcome: payload.desiredOutcome,
+                })
+              }
               onPrimaryAction={() => handleCancel(activeBooking, "Cancelled from current view")}
               primaryLabel="Cancel booking"
-              onView={() => setSelectedBookingId(activeBooking.id)}
             />
             <PaymentSummary booking={activeBooking} />
+            {chatVisible && (
+              <ChatThread
+                conversation={chatConversation}
+                messages={chatMessages}
+                loading={chatLoading}
+                error={chatError}
+                onSend={(content, attachment) =>
+                  sendMessage(activeBooking.id, { content, attachment })
+                }
+              />
+            )}
           </div>
-          <div>
+          <div className="space-y-4">
             {enRouteBooking ? (
               <LiveLocationMap
                 location={liveLocationState.location}
