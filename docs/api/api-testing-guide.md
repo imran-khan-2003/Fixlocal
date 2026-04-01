@@ -10,6 +10,27 @@ This reference consolidates every public API exposed by the FixLocal backend (`/
 
 ---
 
+## Endpoint Inventory Snapshot
+
+Total unique REST endpoints discovered across `com.fixlocal.controller`: **47**
+
+| Controller | Base Path | # Endpoints |
+|------------|-----------|-------------|
+| `AuthController` | `/api/v1/auth` | 2 |
+| `UserController` | `/api/v1/users` | 7 |
+| `TradespersonController` | `/api/v1/tradespersons` | 2 |
+| `BookingController` | `/api/v1/bookings` | 21 |
+| `DashboardController` | `/api/v1/dashboard` | 2 |
+| `DisputeController` | `/api/v1/disputes` | 7 |
+| `NotificationController` | `/api/v1/notifications` | 3 |
+| `ReviewController` | `/api/v1/reviews` | 2 |
+| `TestimonialController` | `/api/v1/testimonials` | 2 |
+| `ChatController` | `/api/v1/chat` | 3 |
+| `AdminController` | `/api/v1/admin` | 7 |
+| `TestController` | `/api/v1/test` | 2 (health + secure ping) |
+
+> The tables below list every endpoint grouped by function. Use this summary to cross-check automation scripts or Postman collections.
+
 ## 1. Authentication & Identity
 
 | Method | Path | Description | Auth |
@@ -78,7 +99,7 @@ curl -X PUT http://localhost:8080/api/v1/users/me/skill-tags \
   -d '{"tags":["ac repair","wiring","safety audit"]}'
 ```
 
-### Tradesperson Discovery
+### Tradesperson Discovery (Public)
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -87,7 +108,7 @@ curl -X PUT http://localhost:8080/api/v1/users/me/skill-tags \
 
 ---
 
-## 3. Booking & Offer Flow
+## 3. Booking, Offer & Payment Flow (21 endpoints)
 
 Primary DTOs: `BookingRequest`, `PriceOfferRequest`, `Booking`, `BookingStatsDTO`.
 
@@ -107,14 +128,14 @@ Primary DTOs: `BookingRequest`, `PriceOfferRequest`, `Booking`, `BookingStatsDTO
 | `GET` | `/api/v1/bookings/tradesperson` | Tradesperson bookings. |
 | `GET` | `/api/v1/bookings/stats` | Aggregated counts (pending, active, completed, etc.). |
 
-#### Live Location APIs
+#### Live Location APIs (2)
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/api/v1/bookings/{id}/location` | Tradesperson posts `{ "latitude": number, "longitude": number }`. Stored with TTL, broadcast via STOMP. |
 | `GET` | `/api/v1/bookings/{id}/location` | Returns last coordinates + `stale` flag for authorized users. |
 
-#### Escrow Placeholders
+#### Escrow Placeholders (4)
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/api/v1/bookings/{id}/payments/initiate` | Creates escrow intent (kept abstract). |
@@ -133,7 +154,17 @@ Primary DTOs: `BookingRequest`, `PriceOfferRequest`, `Booking`, `BookingStatsDTO
 
 ---
 
-## 5. Disputes & Support
+## 5. Disputes & Support (7)
+
+| # | Method | Path | Description |
+|---|--------|------|-------------|
+| 1 | `POST` | `/api/v1/disputes` | Create dispute for booking. |
+| 2 | `GET` | `/api/v1/disputes` | Admin-only full list. |
+| 3 | `GET` | `/api/v1/disputes/{id}` | Single dispute detail with ACL. |
+| 4 | `GET` | `/api/v1/disputes/booking/{bookingId}` | All disputes for a booking. |
+| 5 | `GET` | `/api/v1/disputes/mine` | Reporter’s disputes. |
+| 6 | `PUT` | `/api/v1/disputes/{id}` | Admin resolution update. |
+| 7 | `POST` | `/api/v1/disputes/{id}/messages` | Append message/thread note. |
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -159,7 +190,7 @@ curl -X POST http://localhost:8080/api/v1/disputes \
 
 ---
 
-## 6. Notifications
+## 6. Notifications (3)
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -171,7 +202,7 @@ curl -X POST http://localhost:8080/api/v1/disputes \
 
 ---
 
-## 7. Chat & Collaboration
+## 7. Chat & Collaboration (3)
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -183,7 +214,7 @@ WebSocket destination for live chat (mirrors REST persistence): `/topic/bookings
 
 ---
 
-## 8. Reviews & Testimonials
+## 8. Reviews & Testimonials (4)
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -194,7 +225,7 @@ WebSocket destination for live chat (mirrors REST persistence): `/topic/bookings
 
 ---
 
-## 9. Admin Suite
+## 9. Admin Suite (7)
 
 > Requires `Role.ADMIN`. Spring Security method security enforces this server-side.
 
@@ -210,7 +241,7 @@ WebSocket destination for live chat (mirrors REST persistence): `/topic/bookings
 
 ---
 
-## 10. Miscellaneous / Utilities
+## 10. Miscellaneous / Utilities (2)
 
 | Method | Path | Description |
 |--------|------|-------------|
