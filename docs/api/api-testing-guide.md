@@ -31,6 +31,20 @@ Total unique REST endpoints discovered across `com.fixlocal.controller`: **47**
 
 > The tables below list every endpoint grouped by function. Use this summary to cross-check automation scripts or Postman collections.
 
+### Postman Automation Suite
+
+A ready-to-run Postman collection that covers all **58** API surfaces (including auth, lifecycle, dashboards, disputes, chat, reviews, admin, and misc pings) lives at:
+
+```
+docs/api/fixlocal-api.postman_collection.json
+```
+
+How to use it:
+1. Import the collection into Postman (or run via Newman) using the file above.
+2. Update the collection variables (`{{baseUrl}}`, `{{authToken}}`, `{{adminToken}}`, IDs such as `{{bookingId}}`) to match your environment or seed data.
+3. Run the folders in order (Auth → Users & Tradespersons → Bookings → …) to exercise every controller.
+4. For CI automation, run `npm install -g newman` and execute `newman run docs/api/fixlocal-api.postman_collection.json --env-file <env.json>`.
+
 ## 1. Authentication & Identity
 
 | Method | Path | Description | Auth |
