@@ -31,7 +31,7 @@ function Navbar({ onToggleSidebar }) {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            className="rounded-lg border border-slate-200 p-2 text-white hover:bg-accent"
+            className="flex h-[42px] w-[42px] items-center justify-center rounded-lg border border-slate-200 p-0 text-2xl leading-none text-white hover:bg-accent"
             onClick={onToggleSidebar || (() => {})}
             aria-label="Toggle navigation"
           >

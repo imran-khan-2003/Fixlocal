@@ -57,7 +57,7 @@ function Sidebar({ open, onClose }) {
         <span className="text-lg font-semibold text-slate-800">Menu</span>
         <button
           type="button"
-          className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
+          className="flex h-[42px] w-[42px] items-center justify-center rounded-lg border border-slate-200 p-0 text-slate-500 hover:bg-slate-50"
           onClick={onClose}
           aria-label="Close sidebar"
         >

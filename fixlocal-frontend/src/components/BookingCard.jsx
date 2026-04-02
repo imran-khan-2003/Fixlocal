@@ -23,6 +23,11 @@ function BookingCard({
   ratingSubmitting,
   ratingError,
   showCustomerDetails = false,
+  canQuotePrice = false,
+  quoteValue,
+  onQuoteChange,
+  onQuoteSubmit,
+  quoteSubmitting = false,
   onDispute,
 }) {
   const [showDisputeForm, setShowDisputeForm] = useState(false);
@@ -86,6 +91,33 @@ function BookingCard({
         {new Date(booking.bookingEndTime).toLocaleString()}
       </p>
       <p className="text-sm font-semibold text-slate-700">Price: ₹ {price}</p>
+      {booking.lastOfferBy === "TRADESPERSON" && (
+        <p className="text-xs text-blue-600 font-medium">Quoted by tradesperson</p>
+      )}
+      {canQuotePrice && (
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="text-xs text-slate-500 flex flex-col">
+            Set booking price (₹)
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={quoteValue ?? ""}
+              onChange={(event) => onQuoteChange && onQuoteChange(booking, event.target.value)}
+              className="mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
+              placeholder="Enter amount"
+            />
+          </label>
+          <button
+            type="button"
+            className="bg-emerald-600 text-white text-sm px-3 py-2 rounded disabled:opacity-60"
+            onClick={() => onQuoteSubmit && onQuoteSubmit(booking)}
+            disabled={quoteSubmitting}
+          >
+            {quoteSubmitting ? "Saving..." : "Set Price"}
+          </button>
+        </div>
+      )}
       {showCustomerDetails && contactDetails.length > 0 && (
         <div className="text-xs text-slate-500">
           {contactDetails.map((line) => (

@@ -47,6 +47,8 @@ function TradespersonDashboard() {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState("");
   const [chatVisible, setChatVisible] = useState(false);
+  const [quoteValues, setQuoteValues] = useState({});
+  const [quoteSubmittingByBooking, setQuoteSubmittingByBooking] = useState({});
 
   const fetchBookings = useCallback(async () => {
     setLoading(true);
@@ -103,6 +105,40 @@ function TradespersonDashboard() {
       }
     },
     [fetchBookings]
+  );
+
+  const handleQuoteChange = useCallback((booking, value) => {
+    if (!booking) return;
+    setQuoteValues((prev) => ({ ...prev, [booking.id]: value }));
+  }, []);
+
+  const handleQuoteSubmit = useCallback(
+    async (booking) => {
+      if (!booking) return;
+
+      const rawValue = quoteValues[booking.id];
+      const amount = Number(rawValue);
+
+      if (!Number.isFinite(amount) || amount <= 0) {
+        setActionNotice("Please enter a valid booking price.");
+        return;
+      }
+
+      setQuoteSubmittingByBooking((prev) => ({ ...prev, [booking.id]: true }));
+      try {
+        await bookingService.submitOffer(booking.id, {
+          amount,
+          message: "Price quoted by tradesperson",
+        });
+        setActionNotice(`Price updated to ₹${amount}. User can now see this quoted price.`);
+        fetchBookings();
+      } catch (err) {
+        setActionNotice(err?.response?.data?.message || "Failed to set booking price.");
+      } finally {
+        setQuoteSubmittingByBooking((prev) => ({ ...prev, [booking.id]: false }));
+      }
+    },
+    [quoteValues, fetchBookings]
   );
 
   const handleCancelBooking = useCallback(
@@ -294,6 +330,16 @@ function TradespersonDashboard() {
                   secondaryLabel={actionConfig.secondaryLabel}
                   onDangerAction={canCancel ? handleCancelBooking : undefined}
                   dangerLabel={canCancel ? "Cancel Booking" : undefined}
+                  canQuotePrice={booking.status === "PENDING"}
+                  quoteValue={
+                    quoteValues[booking.id] ??
+                    booking.price ??
+                    booking.initialOfferAmount ??
+                    ""
+                  }
+                  onQuoteChange={handleQuoteChange}
+                  onQuoteSubmit={handleQuoteSubmit}
+                  quoteSubmitting={Boolean(quoteSubmittingByBooking[booking.id])}
                   showCustomerDetails
                   onDispute={async (payload) =>
                     disputeService.create({

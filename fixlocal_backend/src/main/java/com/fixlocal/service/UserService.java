@@ -14,6 +14,7 @@ import com.fixlocal.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -132,6 +133,13 @@ public class UserService {
 
         userRepository.save(user);
         return mapToDTO(user);
+    }
+
+    @Transactional
+    public void deleteMyAccount(String email) {
+        User user = findByEmailOrThrow(email);
+        userRepository.deleteById(user.getId());
+        log.info("Deleted account for user {}", user.getId());
     }
 
     public UserResponseDTO mapToDTO(User user) {

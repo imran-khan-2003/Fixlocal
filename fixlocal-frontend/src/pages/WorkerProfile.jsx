@@ -222,7 +222,9 @@ function WorkerProfile() {
             </div>
             <div>
               <dt className="text-sm text-text-secondary">Rating</dt>
-              <dd className="text-base">⭐ {worker.averageRating ?? "N/A"}</dd>
+              <dd className="text-base">
+                ⭐ {Number.isFinite(Number(worker.averageRating)) ? Number(worker.averageRating).toFixed(1) : "N/A"}
+              </dd>
             </div>
             <div>
               <dt className="text-sm text-text-secondary">Status</dt>

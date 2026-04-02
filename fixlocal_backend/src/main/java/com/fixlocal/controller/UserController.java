@@ -8,6 +8,7 @@ import com.fixlocal.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -69,5 +70,11 @@ public class UserController {
             @PathVariable String serviceId) {
 
         return userService.deleteServiceOffering(authentication.getName(), serviceId);
+    }
+
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteMyAccount(Authentication authentication) {
+        userService.deleteMyAccount(authentication.getName());
+        return ResponseEntity.noContent().build();
     }
 }

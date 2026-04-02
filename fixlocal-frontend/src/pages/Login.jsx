@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 
@@ -18,7 +18,7 @@ function Login() {
     try {
       const { data } = await api.post("/auth/login", { email, password });
       await login({ token: data.token, user: data.user });
-      navigate("/dashboard");
+      navigate("/");
     } catch (err) {
       setError(err?.response?.data?.message || "Invalid credentials");
     } finally {
@@ -48,6 +48,11 @@ function Login() {
             className="w-full border rounded-lg p-3 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             required
           />
+          <div className="text-right">
+            <Link to="/forgot-password" className="text-sm text-primary hover:underline">
+              Forgot password?
+            </Link>
+          </div>
           <button
             type="submit"
             disabled={loading}

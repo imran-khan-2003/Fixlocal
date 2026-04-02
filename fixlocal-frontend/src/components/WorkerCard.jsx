@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 function WorkerCard({ worker }) {
 
   const navigate = useNavigate();
+  const roundedRating = Number.isFinite(Number(worker.averageRating))
+    ? Number(worker.averageRating).toFixed(1)
+    : "0.0";
 
   return (
     <div className="relative p-5 bg-white border rounded-2xl shadow hover:shadow-xl transition">
@@ -22,7 +25,7 @@ function WorkerCard({ worker }) {
 
       <p className="text-text-secondary">📍 {worker.workingCity}</p>
 
-      <p className="text-text-secondary">⭐ {worker.averageRating || 0}</p>
+      <p className="text-text-secondary">⭐ {roundedRating}</p>
 
       <p className="text-text-secondary">🧰 {worker.experience || 0} yrs exp</p>
 

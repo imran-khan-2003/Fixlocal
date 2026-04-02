@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom
 
 import Home from "../pages/Home";
 import Login from "../pages/Login";
+import ForgotPassword from "../pages/ForgotPassword";
 import Register from "../pages/Register";
 import SearchResults from "../pages/SearchResults";
 import WorkerProfile from "../pages/WorkerProfile";
@@ -63,6 +64,7 @@ function AppRoutes() {
         <Route element={<PublicLayout />}>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/register" element={<Register />} />
           <Route path="/search" element={<SearchResults />} />
           <Route path="/worker/:id" element={<WorkerProfile />} />

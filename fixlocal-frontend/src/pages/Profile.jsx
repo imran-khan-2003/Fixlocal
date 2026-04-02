@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
 import { useAuth } from "../context/AuthContext";
 import { dashboardService } from "../api/dashboardService";
@@ -15,7 +16,8 @@ function InfoRow({ label, value }) {
 }
 
 function Profile() {
-  const { user, refreshUser } = useAuth() || {};
+  const navigate = useNavigate();
+  const { user, refreshUser, logout } = useAuth() || {};
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [userStats, setUserStats] = useState(null);
@@ -33,6 +35,8 @@ function Profile() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [saveSuccess, setSaveSuccess] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -78,6 +82,7 @@ function Profile() {
     setSkillError("");
     setSaveSuccess("");
     setSaveError("");
+    setDeleteAccountError("");
   }, [user]);
 
   const isTradesperson = user?.role === "TRADESPERSON";
@@ -149,6 +154,31 @@ function Profile() {
       setSaveError(message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+
+    const confirmed = window.confirm(
+      "Are you sure you want to permanently delete your account? This action cannot be undone."
+    );
+
+    if (!confirmed) return;
+
+    setDeleteAccountError("");
+    setSaveSuccess("");
+    setDeletingAccount(true);
+
+    try {
+      await userService.deleteMyAccount();
+      if (logout) logout();
+      navigate("/login");
+    } catch (err) {
+      const message = err?.response?.data?.message || "Failed to delete account";
+      setDeleteAccountError(message);
+    } finally {
+      setDeletingAccount(false);
     }
   };
 
@@ -318,11 +348,21 @@ function Profile() {
             {saveError && <p className="text-sm text-red-500">{saveError}</p>}
             {saveSuccess && <p className="text-sm text-green-600">{saveSuccess}</p>}
 
-            <div className="flex justify-end gap-3">
+            {deleteAccountError && <p className="text-sm text-red-500">{deleteAccountError}</p>}
+
+            <div className="flex flex-wrap justify-between gap-3">
+              <button
+                type="button"
+                className="px-5 py-2 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm font-semibold disabled:opacity-50"
+                onClick={handleDeleteAccount}
+                disabled={deletingAccount || saving}
+              >
+                {deletingAccount ? "Deleting..." : "Delete account"}
+              </button>
               <button
                 type="submit"
                 className="px-5 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-50"
-                disabled={isSaveDisabled}
+                disabled={isSaveDisabled || deletingAccount}
               >
                 {saving ? "Saving..." : "Save changes"}
               </button>
