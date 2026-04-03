@@ -2,10 +2,86 @@ import { useMemo, useState } from "react";
 import DashboardLayout from "../../components/DashboardLayout";
 import BookingCard from "../../components/BookingCard";
 import { useBookingsData } from "../../hooks/useBookingsData";
+import { downloadBookingReceipt } from "../../utils/bookingReceipt";
+import reviewService from "../../api/reviewService";
 
 function BookingHistory() {
-  const { bookings, loading } = useBookingsData();
+  const { bookings, loading, refresh } = useBookingsData();
   const [filter, setFilter] = useState("COMPLETED");
+  const [downloadingReceiptId, setDownloadingReceiptId] = useState("");
+  const [receiptError, setReceiptError] = useState("");
+  const [actionNotice, setActionNotice] = useState("");
+  const [inlineRatingBookingId, setInlineRatingBookingId] = useState(null);
+  const [inlineRatingValues, setInlineRatingValues] = useState({});
+  const [inlineRatingComments, setInlineRatingComments] = useState({});
+  const [inlineRatingErrors, setInlineRatingErrors] = useState({});
+  const [inlineRatingSubmitting, setInlineRatingSubmitting] = useState(false);
+
+  const handleDownloadReceipt = async (booking) => {
+    if (!booking?.id) return;
+    setReceiptError("");
+    setDownloadingReceiptId(booking.id);
+    try {
+      await downloadBookingReceipt(booking);
+    } catch (error) {
+      setReceiptError("Failed to generate PDF receipt. Please try again.");
+    } finally {
+      setDownloadingReceiptId("");
+    }
+  };
+
+  const canRateBooking = (booking) => {
+    if (!booking) return false;
+    const alreadyRated = booking.reviewSubmitted || typeof booking.userRating === "number";
+    return booking.status === "COMPLETED" && !alreadyRated;
+  };
+
+  const openInlineRating = (booking) => {
+    setActionNotice("");
+    setInlineRatingBookingId(booking.id);
+    setInlineRatingValues((prev) => ({ ...prev, [booking.id]: prev[booking.id] || 5 }));
+    setInlineRatingComments((prev) => ({ ...prev, [booking.id]: prev[booking.id] || "" }));
+    setInlineRatingErrors((prev) => ({ ...prev, [booking.id]: "" }));
+  };
+
+  const cancelInlineRating = () => {
+    setInlineRatingBookingId(null);
+    setInlineRatingSubmitting(false);
+  };
+
+  const handleInlineRatingChange = (booking, value) => {
+    setInlineRatingValues((prev) => ({ ...prev, [booking.id]: value }));
+  };
+
+  const handleInlineCommentChange = (booking, value) => {
+    setInlineRatingComments((prev) => ({ ...prev, [booking.id]: value }));
+  };
+
+  const handleInlineRatingSubmit = async (booking) => {
+    if (!booking) return;
+    const comment = (inlineRatingComments[booking.id] || "").trim();
+    if (!comment) {
+      setInlineRatingErrors((prev) => ({ ...prev, [booking.id]: "Please add a short comment." }));
+      return;
+    }
+
+    setInlineRatingSubmitting(true);
+    setInlineRatingErrors((prev) => ({ ...prev, [booking.id]: "" }));
+    setActionNotice("");
+    try {
+      await reviewService.addReview(booking.id, {
+        rating: inlineRatingValues[booking.id] || 5,
+        comment,
+      });
+      setActionNotice("Thanks for rating your booking!");
+      cancelInlineRating();
+      await refresh();
+    } catch (err) {
+      setInlineRatingErrors((prev) => ({ ...prev, [booking.id]: "Unable to submit review. Please try again." }));
+    } finally {
+      setInlineRatingSubmitting(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     return bookings.filter((booking) =>
@@ -33,6 +109,8 @@ function BookingHistory() {
           <option value="REJECTED">Rejected</option>
         </select>
       </div>
+      {actionNotice && <p className="text-sm text-blue-600 mb-3">{actionNotice}</p>}
+      {receiptError && <p className="text-sm text-red-500 mb-3">{receiptError}</p>}
       {loading ? (
         <p className="text-slate-600">Loading bookings…</p>
       ) : filtered.length === 0 ? (
@@ -44,6 +122,19 @@ function BookingHistory() {
               key={booking.id}
               booking={booking}
               showCustomerDetails
+              onDownloadReceipt={handleDownloadReceipt}
+              receiptDownloading={downloadingReceiptId === booking.id}
+              onRateStart={canRateBooking(booking) ? openInlineRating : undefined}
+              canRate={canRateBooking(booking)}
+              isRating={inlineRatingBookingId === booking.id}
+              ratingValue={inlineRatingValues[booking.id] || 5}
+              ratingComment={inlineRatingComments[booking.id] || ""}
+              onRatingChange={handleInlineRatingChange}
+              onRatingCommentChange={handleInlineCommentChange}
+              onRatingSubmit={handleInlineRatingSubmit}
+              onRatingCancel={cancelInlineRating}
+              ratingSubmitting={inlineRatingSubmitting}
+              ratingError={inlineRatingErrors[booking.id]}
             />
           ))}
         </div>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import testimonialApi from "../api/testimonialService";
+import { reverseGeocodeCity } from "../utils/geocode";
 
 export const services = [
   { value: "electrician", label: "Electrician" },
@@ -67,6 +68,7 @@ const howItWorks = [
 ];
 
 function Home() {
+  const DEFAULT_RADIUS_KM = 10;
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const [city, setCity] = useState("");
@@ -74,7 +76,7 @@ function Home() {
   const [citySuggestions, setCitySuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const cityDropdownRef = useRef(null);
-  const [query, setQuery] = useState("Electrician");
+  const [service, setService] = useState("");
   const [testimonials, setTestimonials] = useState([]);
   const [testimonialError, setTestimonialError] = useState("");
   const [testimonialForm, setTestimonialForm] = useState({
@@ -86,12 +88,58 @@ function Home() {
   const [testimonialSubmitting, setTestimonialSubmitting] = useState(false);
   const [testimonialSuccess, setTestimonialSuccess] = useState("");
   const [testimonialFormError, setTestimonialFormError] = useState("");
+  const [locationSearching, setLocationSearching] = useState(false);
+  const [locationError, setLocationError] = useState("");
 
   const handleSearch = () => {
     if (!city.trim()) return;
     const url = new URLSearchParams({ city: city.trim() });
-    if (query.trim()) url.append("occupation", query.trim());
+    if (service.trim()) url.append("service", service.trim());
     navigate(`/search?${url.toString()}`);
+  };
+
+  const handleSearchByCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    setLocationSearching(true);
+    setLocationError("");
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        try {
+          const detectedCity = await reverseGeocodeCity(latitude, longitude);
+          const cityToSearch = (detectedCity || city || "").trim();
+          if (!cityToSearch) {
+            setLocationError("Couldn't detect city from GPS. Please enter city manually.");
+            return;
+          }
+
+          setCity(cityToSearch);
+          const url = new URLSearchParams({
+            city: cityToSearch,
+            latitude: String(latitude),
+            longitude: String(longitude),
+            radiusKm: String(DEFAULT_RADIUS_KM),
+          });
+          if (service.trim()) url.append("service", service.trim());
+          navigate(`/search?${url.toString()}`);
+        } catch (error) {
+          setLocationError("Failed to detect your location. Please try again.");
+        } finally {
+          setLocationSearching(false);
+        }
+      },
+      () => {
+        setLocationError("Unable to access your location. Please allow GPS permission.");
+        setLocationSearching(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   useEffect(() => {
@@ -249,8 +297,8 @@ function Home() {
               )}
             </div>
             <select
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              value={service}
+              onChange={(e) => setService(e.target.value)}
               className="flex-1 p-3 rounded-lg text-gray-900"
             >
               <option value="">All Services</option>
@@ -266,7 +314,18 @@ function Home() {
             >
               Search
             </button>
+            <button
+              type="button"
+              onClick={handleSearchByCurrentLocation}
+              disabled={locationSearching}
+              className="border border-white/60 text-white font-semibold px-5 py-3 rounded-lg disabled:opacity-70"
+            >
+              {locationSearching ? "Detecting GPS..." : "Search by Current GPS"}
+            </button>
           </div>
+          {locationError && (
+            <p className="mt-3 text-sm text-amber-100">{locationError}</p>
+          )}
         </div>
       </section>
 

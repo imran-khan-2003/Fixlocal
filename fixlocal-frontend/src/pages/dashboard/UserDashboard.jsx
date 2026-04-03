@@ -152,6 +152,9 @@ function UserDashboard() {
   const [inlineRatingComments, setInlineRatingComments] = useState({});
   const [inlineRatingErrors, setInlineRatingErrors] = useState({});
   const [inlineRatingSubmitting, setInlineRatingSubmitting] = useState(false);
+  const [offerValues, setOfferValues] = useState({});
+  const [offerSubmittingByBooking, setOfferSubmittingByBooking] = useState({});
+  const [offerAcceptingByBooking, setOfferAcceptingByBooking] = useState({});
 
   const [summary, setSummary] = useState(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -348,6 +351,97 @@ function UserDashboard() {
     [fetchBookings]
   );
 
+  const getLatestOpenOffer = useCallback((booking) => {
+    const offers = (booking?.offerHistory || []).slice().reverse();
+    return offers.find((offer) => !offer?.accepted) || null;
+  }, []);
+
+  const canUserCounterOffer = useCallback(
+    (booking) => booking?.status === "PENDING" && booking?.awaitingResponseFrom === "USER",
+    []
+  );
+
+  const canUserAcceptOffer = useCallback(
+    (booking) => {
+      if (!canUserCounterOffer(booking)) return false;
+      const latest = getLatestOpenOffer(booking);
+      return Boolean(latest?.id && latest?.offeredBy === "TRADESPERSON");
+    },
+    [canUserCounterOffer, getLatestOpenOffer]
+  );
+
+  const getOfferNotice = useCallback(
+    (booking) => {
+      if (!booking || booking.status !== "PENDING") return "";
+      const latest = getLatestOpenOffer(booking);
+      if (!latest) return "";
+      const amountLabel = Number.isFinite(Number(latest.amount)) ? `₹${latest.amount}` : "latest price";
+
+      if (booking.awaitingResponseFrom === "USER" && latest.offeredBy === "TRADESPERSON") {
+        return `Tradesperson offered ${amountLabel}. You can accept this offer or send a counter offer.`;
+      }
+
+      if (booking.awaitingResponseFrom === "TRADESPERSON" && latest.offeredBy === "USER") {
+        return `Your offer of ${amountLabel} is sent. Waiting for tradesperson response.`;
+      }
+
+      return `Latest offer: ${amountLabel}.`;
+    },
+    [getLatestOpenOffer]
+  );
+
+  const handleOfferChange = useCallback((booking, value) => {
+    if (!booking) return;
+    setOfferValues((prev) => ({ ...prev, [booking.id]: value }));
+  }, []);
+
+  const handleOfferSubmit = useCallback(
+    async (booking) => {
+      if (!booking) return;
+      const amount = Number(offerValues[booking.id]);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        setActionNotice("Please enter a valid counter offer amount.");
+        return;
+      }
+
+      setOfferSubmittingByBooking((prev) => ({ ...prev, [booking.id]: true }));
+      try {
+        await bookingService.submitOffer(booking.id, {
+          amount,
+          message: "Counter offer from user",
+        });
+        setActionNotice(`Counter offer sent: ₹${amount}`);
+        fetchBookings();
+      } catch (err) {
+        setActionNotice(err?.response?.data?.message || "Failed to send counter offer.");
+      } finally {
+        setOfferSubmittingByBooking((prev) => ({ ...prev, [booking.id]: false }));
+      }
+    },
+    [offerValues, fetchBookings]
+  );
+
+  const handleAcceptOffer = useCallback(
+    async (booking) => {
+      if (!booking) return;
+      if (offerAcceptingByBooking[booking.id]) return;
+      const latest = getLatestOpenOffer(booking);
+      if (!latest?.id) return;
+
+      setOfferAcceptingByBooking((prev) => ({ ...prev, [booking.id]: true }));
+      try {
+        await bookingService.acceptOffer(booking.id, latest.id);
+        setActionNotice(`Offer accepted at ₹${latest.amount}`);
+        fetchBookings();
+      } catch (err) {
+        setActionNotice(err?.response?.data?.message || "Failed to accept offer.");
+      } finally {
+        setOfferAcceptingByBooking((prev) => ({ ...prev, [booking.id]: false }));
+      }
+    },
+    [offerAcceptingByBooking, getLatestOpenOffer, fetchBookings]
+  );
+
   const canRateBooking = useCallback((booking) => {
     if (!booking) return false;
     const alreadyRated = booking.reviewSubmitted || typeof booking.userRating === "number";
@@ -428,40 +522,61 @@ function UserDashboard() {
       ) : (
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 grid gap-4">
-            {bookings.map((booking) => (
-              <BookingCard
-                key={booking.id}
-                booking={booking}
-                onView={() => setSelectedBookingId(booking.id)}
-                onChat={() =>
-                  handleConversationSelect(
-                    buildConversationFromBooking(booking, user?.id),
-                    { toggleOnly: true }
-                  )
-                }
-                onPrimaryAction={() => handlePrimaryAction(booking)}
-                primaryLabel={primaryActionLabel(booking.status)}
-                onRateStart={canRateBooking(booking) ? openInlineRating : undefined}
-                canRate={canRateBooking(booking)}
-                isRating={inlineRatingBookingId === booking.id}
-                ratingValue={inlineRatingValues[booking.id] || 5}
-                ratingComment={inlineRatingComments[booking.id] || ""}
-                onRatingChange={handleInlineRatingChange}
-                onRatingCommentChange={handleInlineCommentChange}
-                onRatingSubmit={handleInlineRatingSubmit}
-                onRatingCancel={cancelInlineRating}
-                ratingSubmitting={inlineRatingSubmitting}
-                ratingError={inlineRatingErrors[booking.id]}
-                onDispute={async (payload) =>
-                  disputeService.create({
-                    bookingId: payload.bookingId,
-                    reason: payload.reason,
-                    desiredOutcome: payload.desiredOutcome,
-                    reporterId: user?.id,
-                  })
-                }
-              />
-            ))}
+            {bookings.map((booking) => {
+              const latestOffer = getLatestOpenOffer(booking);
+              return (
+                <BookingCard
+                  key={booking.id}
+                  booking={booking}
+                  onView={() => setSelectedBookingId(booking.id)}
+                  onChat={() =>
+                    handleConversationSelect(
+                      buildConversationFromBooking(booking, user?.id),
+                      { toggleOnly: true }
+                    )
+                  }
+                  onPrimaryAction={() => handlePrimaryAction(booking)}
+                  primaryLabel={primaryActionLabel(booking.status)}
+                  onSecondaryAction={canUserAcceptOffer(booking) ? () => handleAcceptOffer(booking) : undefined}
+                  secondaryLabel={
+                    canUserAcceptOffer(booking)
+                      ? offerAcceptingByBooking[booking.id]
+                        ? "Accepting..."
+                        : `Accept ₹${latestOffer?.amount ?? ""}`
+                      : undefined
+                  }
+                  canQuotePrice={canUserCounterOffer(booking)}
+                  quoteValue={offerValues[booking.id] ?? latestOffer?.amount ?? booking.price ?? booking.initialOfferAmount ?? ""}
+                  onQuoteChange={handleOfferChange}
+                  onQuoteSubmit={handleOfferSubmit}
+                  quoteSubmitting={Boolean(offerSubmittingByBooking[booking.id])}
+                  quoteInputLabel="Counter offer amount (₹)"
+                  quoteSubmitLabel="Send Counter Offer"
+                  quoteSubmittingLabel="Sending..."
+                  quotePlaceholder="Enter your counter offer"
+                  offerNotice={getOfferNotice(booking)}
+                  onRateStart={canRateBooking(booking) ? openInlineRating : undefined}
+                  canRate={canRateBooking(booking)}
+                  isRating={inlineRatingBookingId === booking.id}
+                  ratingValue={inlineRatingValues[booking.id] || 5}
+                  ratingComment={inlineRatingComments[booking.id] || ""}
+                  onRatingChange={handleInlineRatingChange}
+                  onRatingCommentChange={handleInlineCommentChange}
+                  onRatingSubmit={handleInlineRatingSubmit}
+                  onRatingCancel={cancelInlineRating}
+                  ratingSubmitting={inlineRatingSubmitting}
+                  ratingError={inlineRatingErrors[booking.id]}
+                  onDispute={async (payload) =>
+                    disputeService.create({
+                      bookingId: payload.bookingId,
+                      reason: payload.reason,
+                      desiredOutcome: payload.desiredOutcome,
+                      reporterId: user?.id,
+                    })
+                  }
+                />
+              );
+            })}
             {bookings.length === 0 && (
               <p className="text-slate-600">No bookings yet. Search for a tradesperson to get started.</p>
             )}

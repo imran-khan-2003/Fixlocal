@@ -10,8 +10,18 @@ function SearchResults() {
   const navigate = useNavigate();
   const cityParam = params.get("city") ?? "";
   const serviceParam = params.get("service") ?? params.get("occupation") ?? "";
+  const latitudeParam = params.get("latitude");
+  const longitudeParam = params.get("longitude");
+  const radiusKmParam = params.get("radiusKm");
+
+  const initialLatitude = latitudeParam != null ? Number(latitudeParam) : null;
+  const initialLongitude = longitudeParam != null ? Number(longitudeParam) : null;
+  const initialRadiusKm = radiusKmParam != null ? Number(radiusKmParam) : null;
   const [city, setCity] = useState(cityParam);
   const [service, setService] = useState(serviceParam);
+  const [latitude, setLatitude] = useState(Number.isFinite(initialLatitude) ? initialLatitude : null);
+  const [longitude, setLongitude] = useState(Number.isFinite(initialLongitude) ? initialLongitude : null);
+  const [radiusKm, setRadiusKm] = useState(Number.isFinite(initialRadiusKm) ? initialRadiusKm : null);
   const [priceCap, setPriceCap] = useState("");
   const [minRating, setMinRating] = useState(0);
   const [sortBy, setSortBy] = useState("relevance");
@@ -32,6 +42,11 @@ function SearchResults() {
         const query = new URLSearchParams({ city });
         if (service) {
           query.append("occupation", service);
+        }
+        if (Number.isFinite(latitude) && Number.isFinite(longitude) && Number.isFinite(radiusKm)) {
+          query.append("latitude", String(latitude));
+          query.append("longitude", String(longitude));
+          query.append("radiusKm", String(radiusKm));
         }
         if (priceCap) {
           query.append("maxPrice", priceCap);
@@ -54,7 +69,7 @@ function SearchResults() {
       }
     }
     fetchWorkers();
-  }, [city, service, priceCap, minRating, sortBy]);
+  }, [city, service, latitude, longitude, radiusKm, priceCap, minRating, sortBy]);
 
   useEffect(() => {
     const filtered = workers
@@ -89,6 +104,9 @@ function SearchResults() {
   const handleSearch = ({ city: nextCity, service: nextService }) => {
     setCity(nextCity);
     setService(nextService);
+    setLatitude(null);
+    setLongitude(null);
+    setRadiusKm(null);
 
     const params = new URLSearchParams({ city: nextCity });
     if (nextService) {

@@ -28,7 +28,14 @@ function BookingCard({
   onQuoteChange,
   onQuoteSubmit,
   quoteSubmitting = false,
+  quoteInputLabel = "Set booking price (₹)",
+  quoteSubmitLabel = "Set Price",
+  quoteSubmittingLabel = "Saving...",
+  quotePlaceholder = "Enter amount",
+  offerNotice,
   onDispute,
+  onDownloadReceipt,
+  receiptDownloading = false,
 }) {
   const [showDisputeForm, setShowDisputeForm] = useState(false);
   const [disputeLoading, setDisputeLoading] = useState(false);
@@ -97,7 +104,7 @@ function BookingCard({
       {canQuotePrice && (
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-xs text-slate-500 flex flex-col">
-            Set booking price (₹)
+            {quoteInputLabel}
             <input
               type="number"
               min="1"
@@ -105,7 +112,7 @@ function BookingCard({
               value={quoteValue ?? ""}
               onChange={(event) => onQuoteChange && onQuoteChange(booking, event.target.value)}
               className="mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-              placeholder="Enter amount"
+              placeholder={quotePlaceholder}
             />
           </label>
           <button
@@ -114,9 +121,14 @@ function BookingCard({
             onClick={() => onQuoteSubmit && onQuoteSubmit(booking)}
             disabled={quoteSubmitting}
           >
-            {quoteSubmitting ? "Saving..." : "Set Price"}
+            {quoteSubmitting ? quoteSubmittingLabel : quoteSubmitLabel}
           </button>
         </div>
+      )}
+      {offerNotice && (
+        <p className="text-xs text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">
+          {offerNotice}
+        </p>
       )}
       {showCustomerDetails && contactDetails.length > 0 && (
         <div className="text-xs text-slate-500">
@@ -266,6 +278,16 @@ function BookingCard({
             onClick={() => onRateStart && onRateStart(booking)}
           >
             Rate Now
+          </button>
+        )}
+        {booking.status === "COMPLETED" && onDownloadReceipt && (
+          <button
+            type="button"
+            className="bg-emerald-600 text-white text-sm px-3 py-1 rounded disabled:opacity-60"
+            onClick={() => onDownloadReceipt(booking)}
+            disabled={receiptDownloading}
+          >
+            {receiptDownloading ? "Generating PDF..." : "Download E-Receipt"}
           </button>
         )}
       </div>
